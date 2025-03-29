@@ -1,0 +1,92 @@
+Important Note:
+- Review GetAll() method in BaseRepository
+
+ReizzzToDo:
+- create .net api project
+- add .BAL and .DAL class library project
+
+DAL:
+- add Entities folder
+	- add ReizzzToDoContext : DbContext for code-first migration
+		must have 2 constructor, DbSet<> for all the table and override OnModelCreating() method
+	- adding classes for entities
+- add Enums folder
+	- add TimeUnit enum and use that to seed data for migration
+
+Web API:
+- create Extensions folder with static MigrationExtension class to add a static ApplyMigration(this IApplicationBuilder app) method, 
+which will apply Migration for the database everytime the code is running
+	- the function will have access to the scope with
+		using IServiceScope scope = app.ApplicationServices.CreateScope();
+		using DbContext context = scope.ServiceProvider.GetRequiredService<DbContext>();
+		context.Database.Migrate();
+
+DAL:
+- For more clarity, to add services to the application, create static DALDependencyInjection class that have a 
+static IServiceCollection AddDAL(this IServiceCollection services, IConfiguration configuration) and return the services parameter
+
+Web API:
+- add Microsoft.EntityFrameworkCore.Design in order to add/remove migration
+
+DAL: 
+- Add repository for the entity (ToDoRepository folder, UserRepository folder)
+
+BAL:
+- Add ViewModels folder, Services folder, create BALDependencyInjection class for service declaration
+- Add FluentValidation for ViewModel to validate the user's input
+- Add Utils folder, containing JwtProvider and PasswordHasher folders
+- Complete PasswordHasher functions => complete UserService.Register()
+	- Complete IPasswordHasher.cs and PasswordHasher.cs
+- Complete JwtProvider functions => complete UserService.Login()
+	- Adding JwtBearerAuthentication nuGet package
+	- Complete JwtProvider to create a jwt when the user login
+
+Web API:
+- go to appsettings.json to add Jwt information such as Secret, Issuer, Audience, ExpirationInDays
+- install nuGet package of Microsoft.AspNetCore.Authentication.JwtBearer (must be the same version of your .net)
+- configure Jwt Authentication in Program.cs
+- to add authentication in swagger, create a class in Extensions folder named ServiceCollectionExtensions
+
+- implementing HasRoleAttribute to add a custom attribute for api endpoint
+	- using custom HasRoleAttribute instead of [Authorize] because you have to hard-code the [Authorize(Roles="")]
+	- the HasRoleAttribute() can use your enum which will easier to manage and you will have more control to your code
+	
+	- to use the HasRoleAttribute as an attribute in your code, the class must be implementing AuthorizeAttribute
+	public sealed class HasRoleAttribute : AuthorizeAttribute and implement constructor
+		public HasRoleAttribute(Role role) : base(policy: role.ToString())
+	- then you define your role as an enum for more readable code (Enum folder in DAL)
+	
+	- check IUserRepository.GetUserWithRole() for the code that get the user's role from userId
+
+	- after having the AuthorizeAttribute, custom your Authorization Handler by using a class that implementing AuthorizationHandler<TRequirement>
+	- public class RoleAuthorizationHandler (IServiceScopeFactory _serviceScopeFactory) : AuthorizationHandler<RoleRequirement>
+		- this class need a TRequirement, so add a new RoleRequirement : IAuthorizationRequirement
+	- create a service for the RoleAuthorizationHandler to call when it handling the authorization
+	- configure that service to Program.cs
+	- HasPermissionAttribute require a policy, so add a RoleAuthorizationPolicyProvider : DefaultAuthorizationPolicyProvider
+		- to override GetPolicyAsync() method to check if the policy is existed or not
+		- if the policy is existed, return the policy, else new AuthorizationPolicyBuilder().AddRequirement(your TRequirement).Build()
+
+- To add swagger documentation, add 
+                var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+                o.IncludeXmlComments(xmlPath);
+	in SwaggerGen(o => {})
+	- and go to the project, add <GenerateDocumentationFile>true</GenerateDocumentationFile> in <PropertyGroup>
+
+BAL:
+- add (Microsoft.AspNetCore.)Http.Abstraction to have access to HttpContext
+- add (Microsoft.AspNetCore.)Http to have access to IServiceCollection.AddHttpContextAccessor
+- go to BAL and AddBAL() method, add service.AddHttpContextAccesor() to get access to the jwt claims for BAL project
+
+Web API:
+- to get the result of an object that referenced to other object, add Microsoft.AspNetCore.Mvc.NewtonsoftJson NuGet package and modify
+	services.AddController() to
+	services.AddController().AddNewtonsoftJson(
+		options => options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
+	)
+
+Unit Testing:
+- using xUnit Project Test
+- add NSubstitute for service mocking
+- add FluentAssertion for more way to compare the expected with actual result

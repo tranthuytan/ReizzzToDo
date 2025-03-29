@@ -1,0 +1,6 @@
+@ReizzzToDo_HostAddress = http://localhost:5118
+
+GET {{ReizzzToDo_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
